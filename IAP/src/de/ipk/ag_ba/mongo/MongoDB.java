@@ -7,8 +7,6 @@
 
 package de.ipk.ag_ba.mongo;
 
-import info.StopWatch;
-
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -53,6 +51,7 @@ import com.mongodb.DBRef;
 import com.mongodb.MongoClient;
 import com.mongodb.MongoClientOptions;
 import com.mongodb.MongoClientOptions.Builder;
+import com.mongodb.QueryBuilder;
 import com.mongodb.ServerAddress;
 import com.mongodb.WriteConcern;
 import com.mongodb.WriteResult;
@@ -82,6 +81,7 @@ import de.ipk_gatersleben.ag_pbi.mmd.experimentdata.Substance3D;
 import de.ipk_gatersleben.ag_pbi.mmd.experimentdata.images.ImageData;
 import de.ipk_gatersleben.ag_pbi.mmd.experimentdata.networks.NetworkData;
 import de.ipk_gatersleben.ag_pbi.mmd.experimentdata.volumes.VolumeData;
+import info.StopWatch;
 
 /**
  * @author klukas
@@ -109,6 +109,7 @@ public class MongoDB {
 	
 	WeakHashMap<MongoClient, HashSet<String>> authenticatedDBs = new WeakHashMap<MongoClient, HashSet<String>>();
 	private final int databasePort;
+	private Object mongoConnectLock = new Object();
 	
 	public static ArrayList<MongoDB> getMongos() {
 		return initMongoList();
@@ -313,8 +314,10 @@ public class MongoDB {
 			try {
 				DB db;
 				// synchronized (this.getClass()) {
-				createMongoConnection(database, optHosts, optPort, optLogin, optPass, key);
-				db = m.getDB(database);
+				synchronized (this.mongoConnectLock) {
+					createMongoConnection(database, optHosts, optPort, optLogin, optPass, key);
+					db = m.getDB(database);
+				}
 				// }
 				if (authenticatedDBs.get(m) == null || !authenticatedDBs.get(m).contains(database))
 					if (optLogin != null && optPass != null && optLogin.length() > 0 && optPass.length() > 0) {
@@ -552,8 +555,7 @@ public class MongoDB {
 		
 		if (!stored_in_VFS) {
 			boolean compress = false;
-			GridFSInputFile inputFile = fs.createFile(compress ?
-					ResourceIOManager.getCompressedInputStream((MyByteArrayInputStream) is) : is, hash);
+			GridFSInputFile inputFile = fs.createFile(compress ? ResourceIOManager.getCompressedInputStream((MyByteArrayInputStream) is) : is, hash);
 			inputFile.save();
 			result = 1;// inputFile.getLength();
 			is.close();
@@ -619,6 +621,72 @@ public class MongoDB {
 		}
 	}
 	
+	public ExperimentHeaderInterface getExperimentHeaderByName(final String user, final String experimentName) {
+		final ObjectRef res = new ObjectRef();
+		try {
+			processDB(new RunnableOnDB() {
+				private DB db;
+				
+				@Override
+				public void run() {
+					HashMap<String, String> mapableNames = new HashMap<String, String>();
+					String[] mn = SystemOptions.getInstance().getStringAll("GRID-STORAGE",
+							"User Name Mapping", new String[] {
+									"klukas/Christian Klukas"
+							});
+					if (mn != null)
+						for (String s : mn) {
+							if (s == null || s.trim().isEmpty())
+								continue;
+							if (!s.contains("/"))
+								System.out.println(SystemAnalysis.getCurrentTime()
+										+ ">WARNING: Invalid user name mapping, should be 'username/nicename'! (" + s + ")");
+							else
+								mapableNames.put(s.split("/")[0], s.split("/", 2)[1]);
+						}
+					DBObject header;
+					DBObject query;
+					// Create query according to the mapable names, we don't know if a name is already remapped in the db so we have to check both names
+					if (mapableNames.containsKey(user)) {
+						QueryBuilder qb = new QueryBuilder();
+						qb.and(
+								new QueryBuilder()
+										.put(ExperimentHeader.ATTRIBUTE_KEY_EXPERIMENTNAME)
+										.is(experimentName).get(),
+								new QueryBuilder().or(
+										new QueryBuilder().put(ExperimentHeader.ATTRIBUTE_KEY_IMPORTUSERNAME)
+												.is(user).get(),
+										new QueryBuilder().put(ExperimentHeader.ATTRIBUTE_KEY_IMPORTUSERNAME)
+												.is(mapableNames.get(user)).get())
+										.get());
+						query = qb.get();
+					} else {
+						QueryBuilder qb = new QueryBuilder();
+						qb.and(
+								new QueryBuilder()
+										.put(ExperimentHeader.ATTRIBUTE_KEY_EXPERIMENTNAME)
+										.is(experimentName).get(),
+								new QueryBuilder().put(ExperimentHeader.ATTRIBUTE_KEY_IMPORTUSERNAME)
+										.is(user).get());
+						query = qb.get();
+					}
+					header = db.getCollection(MongoExperimentCollections.EXPERIMENTS.toString()).findOne(query);
+					if (header != null)
+						res.setObject(new ExperimentHeader(header.toMap()));
+				}
+				
+				@Override
+				public void setDB(DB db) {
+					this.db = db;
+				}
+			});
+		} catch (Exception e) {
+			ErrorMsg.addErrorMessage(e);
+			return null;
+		}
+		return (ExperimentHeaderInterface) res.getObject();
+	}
+	
 	public ExperimentHeaderInterface getExperimentHeader(final ObjectId experimentMongoID) {
 		final ObjectRef res = new ObjectRef();
 		try {
@@ -671,7 +739,7 @@ public class MongoDB {
 					HashMap<String, String> mapableNames = new HashMap<String, String>();
 					String[] mn = SystemOptions.getInstance().getStringAll("GRID-STORAGE",
 							"User Name Mapping", new String[] {
-							"klukas/Christian Klukas"
+									"klukas/Christian Klukas"
 							});
 					if (mn != null)
 						for (String s : mn) {
@@ -1004,8 +1072,7 @@ public class MongoDB {
 						
 						AggregationOutput out = colFE.aggregate(
 								new BasicDBObject("$match", new BasicDBObject("filename", new BasicDBObject("$in", currentList))),
-								new BasicDBObject("$group", groupFields)
-								);
+								new BasicDBObject("$group", groupFields));
 						
 						Iterator<DBObject> it = out.results().iterator();
 						if (it.hasNext()) {
@@ -1111,8 +1178,7 @@ public class MongoDB {
 								.append("_id", new Integer(1))
 								.append("samples." + MongoCollection.IMAGES.toString(), new Integer(1))
 								.append("samples." + MongoCollection.VOLUMES.toString(), new Integer(1))
-								.append("samples." + MongoCollection.NETWORKS.toString(), new Integer(1))
-						);
+								.append("samples." + MongoCollection.NETWORKS.toString(), new Integer(1)));
 			}
 			// find objects in "condition" collection, but only fields images, volumes, networks
 			if (cond != null) {
@@ -1164,20 +1230,19 @@ public class MongoDB {
 				fields.put("storagedate", 0);
 				
 				condL = collCond.find(
-						new BasicDBObject("_id", new BasicDBObject("$in", ll))
-						, new BasicDBObject()
+						new BasicDBObject("_id", new BasicDBObject("$in", ll)), new BasicDBObject()
 								.append("_id", new Integer(1))
 								.append("samples." + MongoCollection.IMAGES.toString(), new Integer(1))
 								.append("samples." + MongoCollection.VOLUMES.toString(), new Integer(1))
 								.append("samples." + MongoCollection.NETWORKS.toString(), new Integer(1))
-						// .append("remark", new Integer(0))
-						// .append("startdate", new Integer(0))
-						// .append("experimenttype", new Integer(0))
-						// .append("importdate", new Integer(0))
-						// .append("experimentname", new Integer(0))
-						// .append("coordinator", new Integer(0))
-						// .append("storagedate", new Integer(0))
-						).hint(new BasicDBObject("_id", 1));// .batchSize(Math.max(200, l.size()));
+				// .append("remark", new Integer(0))
+				// .append("startdate", new Integer(0))
+				// .append("experimenttype", new Integer(0))
+				// .append("importdate", new Integer(0))
+				// .append("experimentname", new Integer(0))
+				// .append("coordinator", new Integer(0))
+				// .append("storagedate", new Integer(0))
+				).hint(new BasicDBObject("_id", 1));// .batchSize(Math.max(200, l.size()));
 				int condLsize = 0;
 				LinkedList<DBObject> list = new LinkedList<DBObject>();
 				for (DBObject cond : condL) {
@@ -1622,8 +1687,7 @@ public class MongoDB {
 		e.printStackTrace();
 		saveSystemMessage("System eror message " + error + " - Exception " + e.getMessage() +
 				". Stack-trace: " +
-				e.getStackTrace() != null ?
-				StringManipulationTools.getStringList(e.getStackTrace(), " // ") : "(no stacktrace)");
+				e.getStackTrace() != null ? StringManipulationTools.getStringList(e.getStackTrace(), " // ") : "(no stacktrace)");
 		IAPmain.errorCheck(error);
 	}
 	
