@@ -40,8 +40,7 @@ public class ActionPerformAnalysisLocally extends AbstractPhenotypeAnalysisActio
 		if (so.isIniNull() || so.getString("DESCRIPTION", "pipeline_name", "", false, true).length() == 0)
 			return "Analysis pipeline not available";
 		String vv = so.getString("DESCRIPTION", "tuned_for_IAP_version", "(unknown legacy IAP version)");
-		String warning = ReleaseInfo.IAP_VERSION_STRING.equals(vv) ? "" :
-				"<br><small><font color='red'>Settings not tested with IAP V" + ReleaseInfo.IAP_VERSION_STRING + "!</font>";
+		String warning = ReleaseInfo.IAP_VERSION_STRING.equals(vv) ? "" : "<br><small><font color='red'>Settings not tested with IAP V" + ReleaseInfo.IAP_VERSION_STRING + "!</font>";
 		
 		return (warning.isEmpty() ? "" : "<html><center>") + "Process " + StringManipulationTools
 				.removeHTMLtags(so.getString("DESCRIPTION", "pipeline_name", "(unnamed)", true)) + warning;

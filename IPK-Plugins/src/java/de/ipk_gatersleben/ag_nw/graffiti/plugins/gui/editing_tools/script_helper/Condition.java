@@ -99,8 +99,10 @@ public class Condition implements ConditionInterface {
 		return new Object[] { getExperimentName(), getDatabase(), getExperimentType(), getCoordinator(),
 				getExperimentStartDate(), getExperimentImportDate(), getExperimentStorageDate(),
 				getExperimentRemark(),
-				getRowId(), getSpecies(), getGenotype(), getVariety(),
-				getGrowthconditions(), getTreatment(), getSequence(), getFiles(), getExperimentSettings() };
+				getRowId(), getSpecies(), getGenotype(), getGrowthconditions(), getTreatment(), // TODO Send to original Repo: reordered to fix wrong assignment
+																															// when saving (e.g.:
+																															// treatment gets saved to variety)
+				getVariety(), getSequence(), getFiles(), getExperimentSettings() };
 	}
 	
 	@Override

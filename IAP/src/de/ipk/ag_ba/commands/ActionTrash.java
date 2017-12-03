@@ -21,7 +21,7 @@ import de.ipk_gatersleben.ag_nw.graffiti.plugins.gui.editing_tools.script_helper
 /**
  * @author klukas
  */
-public class ActionTrash extends AbstractNavigationAction {
+public class ActionTrash extends AbstractNavigationAction implements AutomatableAction {
 	
 	private final MongoDB m;
 	private String experimentName;
@@ -222,4 +222,5 @@ public class ActionTrash extends AbstractNavigationAction {
 		for (ExperimentHeaderInterface h : toBeAdded)
 			this.headers.add(h);
 	}
+	
 }

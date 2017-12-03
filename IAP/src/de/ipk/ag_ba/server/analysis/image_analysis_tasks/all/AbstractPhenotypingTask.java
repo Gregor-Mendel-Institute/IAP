@@ -304,6 +304,9 @@ public abstract class AbstractPhenotypingTask implements ImageAnalysisTask {
 						try {
 							Thread.sleep(1000);
 						} catch (InterruptedException e) {
+							// TODO Pull request to main repo
+							Thread.currentThread().interrupt();// Reinterrupt to make sure it will exit the while loop.
+							
 							// empty
 						}
 					}

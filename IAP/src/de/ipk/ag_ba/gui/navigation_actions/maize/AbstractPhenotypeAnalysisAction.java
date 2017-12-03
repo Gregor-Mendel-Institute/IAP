@@ -10,6 +10,7 @@ import org.SystemOptions;
 import org.graffiti.plugin.algorithm.ThreadSafeOptions;
 
 import de.ipk.ag_ba.commands.AbstractNavigationAction;
+import de.ipk.ag_ba.commands.AutomatableAction;
 import de.ipk.ag_ba.commands.experiment.process.report.MySnapshotFilter;
 import de.ipk.ag_ba.commands.experiment.view_or_export.ActionDataProcessing;
 import de.ipk.ag_ba.commands.vfs.ActionDataExportToVfs;
@@ -47,8 +48,7 @@ import info.StopWatch;
 /**
  * @author klukas
  */
-public abstract class AbstractPhenotypeAnalysisAction extends AbstractNavigationAction
-		implements RemoteCapableAnalysisAction {
+public abstract class AbstractPhenotypeAnalysisAction extends AbstractNavigationAction implements AutomatableAction, RemoteCapableAnalysisAction {
 	protected MongoDB m;
 	protected ExperimentReferenceInterface experiment;
 	NavigationButton src = null;
