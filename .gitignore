@@ -75,4 +75,5 @@ hs_err_pid*
 *.class
 
 IAP CONSOLE/bin/de/ipk/ag_ba/Console.class
+IPK-Plugins/build/classes/plugins4.txt
 /.DS_Store
