@@ -1,6 +1,6 @@
 ## IAP - The Integrated Analysis Platform for high-throughput plant image analysis
 
-This fork contains all necessary changes to integrate IAP into the Phenopipe System
+This fork contains all necessary changes to integrate IAP into the [PhenoBox-System](https://github.com/Gregor-Mendel-Institute/PhenoBox-System)
 
 ### Documentations and further Information
 
